@@ -17,6 +17,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
       - name: Download Release ZIP
         run: |
           gh release download ${{ github.event.inputs.tag }} -D ./project_source
