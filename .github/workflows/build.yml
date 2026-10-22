@@ -41,9 +41,8 @@ jobs:
       - name: Patch Gradle Version
         working-directory: ${{ env.FOLDER_TARGET }}
         run: |
-          # Update Gradle ke versi 8.14.0 biar sesuai sama Flutter
-          sed -i 's/gradle-[0-9.]*-all\.zip/gradle-8.14.0-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
-          sed -i 's/gradle-[0-9.]*-bin\.zip/gradle-8.14.0-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          # Paksa ganti URL distribusi Gradle ke versi 8.14 (tanpa .0)
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip|g' android/gradle/wrapper/gradle-wrapper.properties
           
       - name: Setup Java
         uses: actions/setup-java@v4
