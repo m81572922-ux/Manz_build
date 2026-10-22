@@ -1,33 +1,41 @@
 name: Build APK
 
 on:
-  push:
-    tags:
-      - '*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag Release yang mau di-build'
+        description: 'Tag Release'
         required: true
         type: string
       mode:
-        description: 'Mode Build (release/debug)'
+        description: 'Mode Build'
         required: true
         default: 'release'
-        type: choice
-        options:
-          - release
-          - debug
+        type: string
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-      
+      - name: Download Release ZIP
+        run: |
+          gh release download ${{ github.event.inputs.tag }} -D ./project_source
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Project
+        run: |
+          cd ./project_source
+          unzip *.zip -d ../extracted_project
+          cd ..
+          
+      - name: Find Project Folder
+        id: find_dir
+        run: |
+          # Mencari file pubspec.yaml dan mengambil folder tempat file itu berada
+          PROJECT_DIR=$(find extracted_project -name pubspec.yaml -exec dirname {} \; | head -n 1)
+          echo "FOLDER_TARGET=$PROJECT_DIR" >> $GITHUB_ENV
+          
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -41,13 +49,15 @@ jobs:
           cache: true
           
       - name: Get Dependencies
+        working-directory: ${{ env.FOLDER_TARGET }}
         run: flutter pub get
         
       - name: Build APK
-        run: flutter build apk --${{ github.event.inputs.mode || 'release' }}
+        working-directory: ${{ env.FOLDER_TARGET }}
+        run: flutter build apk --${{ github.event.inputs.mode }}
         
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-apk
-          path: build/app/outputs/flutter-apk/app-*.apk
+          path: ${{ env.FOLDER_TARGET }}/build/app/outputs/flutter-apk/app-*.apk
