@@ -35,9 +35,15 @@ jobs:
       - name: Find Project Folder
         id: find_dir
         run: |
-          # Mencari file pubspec.yaml dan mengambil folder tempat file itu berada
           PROJECT_DIR=$(find extracted_project -name pubspec.yaml -exec dirname {} \; | head -n 1)
           echo "FOLDER_TARGET=$PROJECT_DIR" >> $GITHUB_ENV
+          
+      - name: Patch Gradle Version
+        working-directory: ${{ env.FOLDER_TARGET }}
+        run: |
+          # Update Gradle ke versi 8.14.0 biar sesuai sama Flutter
+          sed -i 's/gradle-[0-9.]*-all\.zip/gradle-8.14.0-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i 's/gradle-[0-9.]*-bin\.zip/gradle-8.14.0-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
           
       - name: Setup Java
         uses: actions/setup-java@v4
