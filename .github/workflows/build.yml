@@ -1,17 +1,26 @@
-
-name: Build APK
+name: Universal Flutter Build (2024-2027+)
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag Release'
+        description: 'Tag Release ZIP'
         required: true
         type: string
       mode:
-        description: 'Mode Build'
+        description: 'Mode Build (release/debug)'
         required: true
         default: 'release'
+        type: string
+      flutter_version:
+        description: 'Versi Flutter (default: stable / latest)'
+        required: true
+        default: 'stable'
+        type: string
+      java_version:
+        description: 'Versi Java (default: 17)'
+        required: true
+        default: '17'
         type: string
 
 jobs:
@@ -38,22 +47,65 @@ jobs:
         run: |
           PROJECT_DIR=$(find extracted_project -name pubspec.yaml -exec dirname {} \; | head -n 1)
           echo "FOLDER_TARGET=$PROJECT_DIR" >> $GITHUB_ENV
-          
-      - name: Patch Gradle Version
+
+      # ⚡ THE MAGIC: AUTO-PATCH FUTURE-PROOF
+      - name: Auto-Patch Project (2024-2027 Ready)
         working-directory: ${{ env.FOLDER_TARGET }}
         run: |
-          # Ini yang nembak ke services.gradle.org biar gak 404
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip|g' android/gradle/wrapper/gradle-wrapper.properties
+          echo "🔧 Patching project untuk kompatibilitas maksimal..."
+
+          # 1. Hapus referensi icon yang bikin error AAPT
+          if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+            sed -i 's/android:icon="@mipmap\/ic_launcher"//g' android/app/src/main/AndroidManifest.xml
+            sed -i 's/android:icon="@drawable\/launch_background"//g' android/app/src/main/AndroidManifest.xml
+          fi
+
+          # 2. Force Gradle ke 8.14 (Standar 2024 ke atas)
+          if [ -f "android/gradle/wrapper/gradle-wrapper.properties" ]; then
+            sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip|g' android/gradle/wrapper/gradle-wrapper.properties
+          fi
+
+          # 3. Force AGP (Android Gradle Plugin) ke 8.2.2
+          if [ -f "android/build.gradle" ]; then
+            sed -i "s|classpath 'com.android.tools.build:gradle:.*'|classpath 'com.android.tools.build:gradle:8.2.2'|g" android/build.gradle
+            sed -i 's|classpath "com.android.tools.build:gradle:.*"|classpath "com.android.tools.build:gradle:8.2.2"|g' android/build.gradle
+          fi
+          if [ -f "android/settings.gradle" ]; then
+             sed -i "s|id 'com.android.application' version '.*'|id 'com.android.application' version '8.2.2'|g" android/settings.gradle
+          fi
+
+          # 4. Force Android SDK 34 (Wajib buat build 2024-2026)
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
+            sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle
+            sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+          fi
+          if [ -f "android/app/build.gradle.kts" ]; then
+            sed -i 's/compileSdk = .*/compileSdk = 34/g' android/app/build.gradle.kts
+            sed -i 's/targetSdk = .*/targetSdk = 34/g' android/app/build.gradle.kts
+            sed -i 's/minSdk = .*/minSdk = 21/g' android/app/build.gradle.kts
+          fi
           
+          # 5. Benerin Namespace (Error umum pas pake AGP 8+)
+          if [ -f "android/app/build.gradle" ] && ! grep -q "namespace " android/app/build.gradle; then
+            PKG_NAME=$(grep "package=" android/app/src/main/AndroidManifest.xml | sed 's/.*package="\([^"]*\)".*/\1/')
+            if [ -n "$PKG_NAME" ]; then
+              sed -i "/android {/a \    namespace \"$PKG_NAME\"" android/app/build.gradle
+            fi
+          fi
+
+          echo "✅ Auto-patch selesai!"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: ${{ github.event.inputs.java_version }}
           
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ github.event.inputs.flutter_version }}
           channel: 'stable'
           cache: true
           
@@ -68,5 +120,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-apk
+          name: build-apk-${{ github.event.inputs.flutter_version }}
           path: ${{ env.FOLDER_TARGET }}/build/app/outputs/flutter-apk/app-*.apk
