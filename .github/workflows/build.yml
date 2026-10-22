@@ -1,3 +1,4 @@
+
 name: Build APK
 
 on:
@@ -41,7 +42,7 @@ jobs:
       - name: Patch Gradle Version
         working-directory: ${{ env.FOLDER_TARGET }}
         run: |
-          # Paksa ganti URL distribusi Gradle ke versi 8.14 (tanpa .0)
+          # Ini yang nembak ke services.gradle.org biar gak 404
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip|g' android/gradle/wrapper/gradle-wrapper.properties
           
       - name: Setup Java
